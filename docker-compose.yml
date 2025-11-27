@@ -1,0 +1,49 @@
+services:
+  postgres:
+    image: "postgres:16" # Boa prática é fixar a versão (ex: 16)
+    restart: always
+    environment:
+      # Variáveis de Configuração do PostgreSQL
+      - POSTGRES_USER=root
+      - POSTGRES_PASSWORD=root
+      - POSTGRES_DB=postgres # Nome do DB
+    volumes:
+      # CORREÇÃO DE VOLUME: Monta o volume no diretório pai para compatibilidade com versões recentes
+      - ./postgres-data:/var/lib/postgresql 
+    ports:
+      - "5432:5432" # Opcional: expor a porta para acesso externo
+    
+    # MELHORIA CRÍTICA: Verifica se o banco de dados está pronto para receber conexões
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U root -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  app:
+    image: golang:1.22
+    command:
+      # 'go run' em vez de compilar é ótimo para desenvolvimento
+      - go
+      - run
+      - main.go
+    volumes:
+      - ./:/app
+    working_dir: /app
+    ports:
+      - 8080:8080
+      
+    # CORREÇÃO DE INICIALIZAÇÃO: Espera até que o PostgreSQL esteja "healthy"
+    depends_on:
+      postgres:
+        condition: service_healthy
+        
+    environment:
+      # CORREÇÃO 1: Formato chave=valor e nome do host é o nome do serviço
+      - DB_HOST=postgres
+      - DB_USER=root
+      - DB_PASSWORD=root
+      # CORREÇÃO 2: Nome do banco de dados consistente
+      - DB_NAME=postgres 
+      - DB_PORT=5432
