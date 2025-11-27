@@ -39,11 +39,11 @@ services:
       postgres:
         condition: service_healthy
         
-    environment:
+    #environment:
       # CORREÇÃO 1: Formato chave=valor e nome do host é o nome do serviço
-      - DB_HOST=postgres
-      - DB_USER=root
-      - DB_PASSWORD=root
+      #- DB_HOST=localhost
+      #- DB_USER=root
+      #- DB_PASSWORD=root
       # CORREÇÃO 2: Nome do banco de dados consistente
-      - DB_NAME=postgres 
-      - DB_PORT=5432
+      #- DB_NAME=postgres 
+      #- DB_PORT=5432
