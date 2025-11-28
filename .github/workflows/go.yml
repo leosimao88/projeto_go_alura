@@ -25,13 +25,6 @@ jobs:
         ports:
           # Mapeia a porta padrão 5432.
           - 5432:5432
-        # Opções de saúde (Health Check) para garantir que o DB esteja pronto.
-        options: >-
-          --health-cmd "pg_isready -U ${{ secrets.DB_USER }}"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
     - uses: actions/checkout@v4
 
