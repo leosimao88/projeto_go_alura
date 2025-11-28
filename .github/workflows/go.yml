@@ -1,5 +1,5 @@
-# This workflow will build a golang project
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
+# Este workflow irá construir um projeto Golang
+# Para mais informações: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
 
 name: Integração Continua
 
@@ -10,19 +10,39 @@ on:
     branches: [ "main" ]
 
 jobs:
-
   ci:
     runs-on: ubuntu-latest
+
+    # 1. Configuração do Serviço PostgreSQL
+    # O GitHub Actions gerencia a inicialização deste container.
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: ${{ secrets.DB_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.DB_NAME }}
+        ports:
+          # Mapeia a porta padrão 5432.
+          - 5432:5432
+        # Opções de saúde (Health Check) para garantir que o DB esteja pronto.
+        options: >-
+          --health-cmd "pg_isready -U ${{ secrets.DB_USER }}"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up Go
+    - name: Configurar Go
       uses: actions/setup-go@v4
       with:
         go-version: '1.22'
 
-    - name: Inicia Banco
-      run: docker compose up -d postgres
+    # 2. Garante que o projeto compila antes de qualquer teste.
+    - name: Build
+      run: go build -v ./...
 
     - name: Lint
       uses: golangci/golangci-lint-action@v6
@@ -30,5 +50,29 @@ jobs:
         version: v1.59
         args: controllers/ database/ models/ routes/
 
-    - name: Test
-      run: DB_HOST=${{ secrets.DB_HOST }} DB_PASSWORD=${{ secrets.DB_PASSWORD }} DB_USER=${{ secrets.DB_USER }} DB_NAME=${{ secrets.DB_NAME }} DB_PORT=${{ secrets.DB_PORT }} go test -v main_test.go
+    # 3. Espera explicitamente que o serviço 'postgres' esteja pronto para aceitar conexões.
+    # Isso evita falhas de conexão nos testes.
+    - name: Aguardar o Postgres ficar pronto
+      run: |
+        for i in $(seq 1 10); do
+          if nc -z localhost 5432; then
+            echo "Postgres está pronto!"
+            exit 0
+          fi
+          echo "Aguardando o Postgres... ($i/10)"
+          sleep 5
+        done
+        echo "Postgres falhou ao iniciar."
+        exit 1
+      
+    # 4. Executa os testes, passando as credenciais e definindo o host para 'postgres'.
+    - name: Testar
+      env:
+        # 'postgres' é o nome do host do serviço definido acima.
+        DB_HOST: ${{ secrets.DB_HOST }} # postgres
+        DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        DB_USER: ${{ secrets.DB_USER }}
+        DB_NAME: ${{ secrets.DB_NAME }}
+        DB_PORT: ${{ secrets.DB_PORT }}
+      run: go test -v ./...
+
