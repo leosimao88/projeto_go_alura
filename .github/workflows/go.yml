@@ -57,5 +57,5 @@ jobs:
     - name: Projeto compilado
       uses: actions/upload-artifact@v4
       with:
-        name: projeto_compilado
+        name: projeto_compiladoo
         path: main
